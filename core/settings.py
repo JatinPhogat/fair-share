@@ -11,9 +11,9 @@ env = environ.Env(
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
-SECRET_KEY = env("DJANGO_SECRET_KEY")
-DEBUG = env("DJANGO_DEBUG")
-ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
+SECRET_KEY = env("DJANGO_SECRET_KEY", default="django-insecure-fallback-key-for-builds-only")
+DEBUG = env("DJANGO_DEBUG", default=True)
+ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS", default=["*"])
 
 INSTALLED_APPS = [
     "django.contrib.admin",
