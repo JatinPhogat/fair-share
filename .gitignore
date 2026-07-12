@@ -16,3 +16,5 @@ node_modules/
 .idea/
 .vscode/
 frontend/dist/
+docs_from_cp/*.pdf
+docs_from_cp/*.xlsx
