@@ -16,8 +16,10 @@ export default function GroupDetail() {
   const [newExpense, setNewExpense] = useState({
     description: '', paid_by: '', amount: '', currency: 'INR',
     date: new Date().toISOString().split('T')[0], split_type: 'equal',
-    split_with: [], notes: '',
+    split_with: [], split_details: {}, notes: '',
   });
+  const [editingMember, setEditingMember] = useState(null);
+
 
   useEffect(() => {
     loadGroup();
@@ -88,6 +90,36 @@ export default function GroupDetail() {
     }
   };
 
+  const handleEditMember = async (e) => {
+    e.preventDefault();
+    try {
+      await api.patch(`/groups/${id}/members/${editingMember.id}/`, {
+        display_name: editingMember.display_name,
+        joined_at: editingMember.joined_at,
+        left_at: editingMember.left_at || null,
+      });
+      setEditingMember(null);
+      loadGroup();
+      loadBalances();
+      loadDebts();
+    } catch (err) {
+      alert('Failed: ' + JSON.stringify(err.response?.data));
+    }
+  };
+
+  const handleDeleteMember = async (memberId) => {
+    if (!confirm('Are you sure you want to remove this member? This will delete all their records.')) return;
+    try {
+      await api.delete(`/groups/${id}/members/${memberId}/`);
+      setEditingMember(null);
+      loadGroup();
+      loadBalances();
+      loadDebts();
+    } catch (err) {
+      alert('Failed: ' + JSON.stringify(err.response?.data));
+    }
+  };
+
   const handleSettle = async (debt) => {
     try {
       await api.post(`/groups/${id}/payments/`, {
@@ -129,19 +161,51 @@ export default function GroupDetail() {
         <div className="members-bar">
           <strong>Members:</strong>
           {group.memberships?.map(m => (
-            <span key={m.id} className={`member-tag ${m.left_at ? 'inactive' : ''}`}>
+            <span
+              key={m.id}
+              className={`member-tag ${m.left_at ? 'inactive' : ''}`}
+              style={{ cursor: 'pointer' }}
+              onClick={() => setEditingMember({ ...m, left_at: m.left_at || '' })}
+              title="Click to edit member"
+            >
               {m.display_name}
               {m.left_at && <small> (left {m.left_at})</small>}
+              <span style={{ marginLeft: '6px', opacity: 0.7, fontSize: '9px' }}>✏️</span>
             </span>
           ))}
-          <button className="btn-small" onClick={() => setShowAddMember(!showAddMember)}>+ Add</button>
+          <button className="btn-small" onClick={() => { setShowAddMember(!showAddMember); setEditingMember(null); }}>+ Add</button>
         </div>
 
         {showAddMember && (
           <form className="create-form inline-form" onSubmit={handleAddMember}>
             <input placeholder="Name" value={newMember.display_name} onChange={e => setNewMember({...newMember, display_name: e.target.value})} required />
-            <input type="date" value={newMember.joined_at} onChange={e => setNewMember({...newMember, joined_at: e.target.value})} />
+            <input type="date" placeholder="Joined At" value={newMember.joined_at} onChange={e => setNewMember({...newMember, joined_at: e.target.value})} />
             <button type="submit">Add Member</button>
+          </form>
+        )}
+
+        {editingMember && (
+          <form className="create-form" onSubmit={handleEditMember} style={{ borderLeft: '3px solid var(--primary)' }}>
+            <h4 style={{ marginBottom: '10px' }}>Edit Member: {editingMember.display_name}</h4>
+            <div className="row">
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Name</label>
+                <input placeholder="Name" value={editingMember.display_name} onChange={e => setEditingMember({...editingMember, display_name: e.target.value})} required />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Joined Date</label>
+                <input type="date" value={editingMember.joined_at || ''} onChange={e => setEditingMember({...editingMember, joined_at: e.target.value})} required />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Left Date (optional)</label>
+                <input type="date" value={editingMember.left_at || ''} onChange={e => setEditingMember({...editingMember, left_at: e.target.value})} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+              <button type="submit" className="btn-small btn-approve">Save</button>
+              <button type="button" className="btn-small btn-secondary" onClick={() => setEditingMember(null)}>Cancel</button>
+              <button type="button" className="btn-small btn-skip" onClick={() => handleDeleteMember(editingMember.id)}>Remove Member</button>
+            </div>
           </form>
         )}
 
@@ -190,6 +254,42 @@ export default function GroupDetail() {
                     </label>
                   ))}
                 </div>
+
+                {newExpense.split_type !== 'equal' && newExpense.split_with.length > 0 && (
+                  <div className="split-details-section" style={{ margin: '15px 0', padding: '15px', background: 'var(--surface-hover)', borderRadius: 'var(--radius)' }}>
+                    <label style={{ display: 'block', marginBottom: '10px', fontWeight: '600' }}>
+                      Specify {newExpense.split_type === 'percentage' ? 'Percentages (%)' : newExpense.split_type === 'share' ? 'Shares (Ratios)' : 'Exact Amounts'} for selected members:
+                    </label>
+                    {newExpense.split_with.map(memberId => {
+                      const member = group.memberships.find(m => m.id === memberId);
+                      if (!member) return null;
+                      return (
+                        <div key={memberId} className="row" style={{ alignItems: 'center', marginBottom: '8px' }}>
+                          <span style={{ flex: 2 }}>{member.display_name}</span>
+                          <input
+                            type="number"
+                            step="any"
+                            placeholder={newExpense.split_type === 'percentage' ? 'e.g. 25' : newExpense.split_type === 'share' ? 'e.g. 1' : 'Amount'}
+                            value={newExpense.split_details[memberId] || ''}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setNewExpense(prev => ({
+                                ...prev,
+                                split_details: {
+                                  ...prev.split_details,
+                                  [memberId]: val
+                                }
+                              }));
+                            }}
+                            style={{ flex: 3, marginBottom: 0 }}
+                            required
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
                 <textarea placeholder="Notes (optional)" value={newExpense.notes} onChange={e => setNewExpense({...newExpense, notes: e.target.value})} />
                 <button type="submit">Add Expense</button>
               </form>

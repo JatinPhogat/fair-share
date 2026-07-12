@@ -33,6 +33,29 @@ class GroupViewSet(viewsets.ModelViewSet):
         serializer.save(group=group)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=["put", "patch"], url_path="members/(?P<member_pk>[^/.]+)")
+    def edit_member(self, request, pk=None, member_pk=None):
+        group = self.get_object()
+        try:
+            member = group.memberships.get(id=member_pk)
+        except GroupMembership.DoesNotExist:
+            return Response({"error": "Member not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = GroupMembershipSerializer(member, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["delete"], url_path="members/(?P<member_pk>[^/.]+)")
+    def delete_member(self, request, pk=None, member_pk=None):
+        group = self.get_object()
+        try:
+            member = group.memberships.get(id=member_pk)
+        except GroupMembership.DoesNotExist:
+            return Response({"error": "Member not found"}, status=status.HTTP_404_NOT_FOUND)
+        member.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=["get"])
     def balances(self, request, pk=None):
         group = self.get_object()
