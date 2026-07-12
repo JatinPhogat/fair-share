@@ -8,6 +8,16 @@ from difflib import SequenceMatcher
 from openpyxl import load_workbook
 
 
+def _to_date(val):
+    if val is None:
+        return None
+    if isinstance(val, date):
+        return val
+    try:
+        return datetime.strptime(str(val), "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return None
+
 CANONICAL_NAMES = {}
 
 KNOWN_NAME_VARIANTS = {
@@ -148,7 +158,7 @@ def _check_name_issues(row: dict, row_num: int, group_members: list[str]) -> lis
     results = []
 
     paid_by_raw = str(row.get("paid_by", "")).strip()
-    if paid_by_raw and paid_by_raw.lower() != normalize_name(paid_by_raw).lower():
+    if paid_by_raw and paid_by_raw != normalize_name(paid_by_raw):
         results.append({
             "row_number": row_num,
             "anomaly_type": "name_casing",
@@ -399,8 +409,8 @@ def _check_membership_temporal(row: dict, row_num: int, member_dates: dict) -> l
     for p in participants:
         if p in member_dates:
             info = member_dates[p]
-            left = info.get("left")
-            joined = info.get("joined")
+            left = _to_date(info.get("left"))
+            joined = _to_date(info.get("joined"))
             if left and expense_date > left:
                 results.append({
                     "row_number": row_num,
