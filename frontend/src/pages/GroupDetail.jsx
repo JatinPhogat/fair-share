@@ -65,7 +65,7 @@ export default function GroupDetail() {
       setNewExpense({
         description: '', paid_by: '', amount: '', currency: 'INR',
         date: new Date().toISOString().split('T')[0], split_type: 'equal',
-        split_with: [], notes: '',
+        split_with: [], split_details: {}, notes: '',
       });
       loadExpenses();
       loadBalances();

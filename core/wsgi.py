@@ -14,9 +14,9 @@ if "VERCEL" in os.environ:
     if not db_file.exists() or db_file.stat().st_size == 0:
         try:
             print("Vercel cold start: migrating database...")
-            call_command("migrate", interactive=False)
+            call_command("migrate")
             print("Vercel cold start: seeding demo data...")
-            call_command("seed_demo", interactive=False)
+            call_command("seed_demo")
         except Exception as e:
             print("Vercel cold start database initialization failed:", e)
 
