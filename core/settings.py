@@ -61,7 +61,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "core.wsgi.application"
 
-DATABASES = {"default": env.db("DATABASE_URL", default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")}
+import os
+IS_VERCEL = "VERCEL" in os.environ
+DB_PATH = "/tmp/db.sqlite3" if IS_VERCEL else str(BASE_DIR / "db.sqlite3")
+
+DATABASES = {"default": env.db("DATABASE_URL", default=f"sqlite:///{DB_PATH}")}
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
